@@ -24,6 +24,8 @@ const App: React.FC = () => {
   
   // Jornada Module State
   const [jornadaHistory, setJornadaHistory] = useState<JornadaCheckRecord[]>([]);
+  const [editingJornadaRecord, setEditingJornadaRecord] = useState<JornadaCheckRecord | null>(null);
+
 
   // Load all data from localStorage on initial render
   useEffect(() => {
@@ -115,6 +117,21 @@ const App: React.FC = () => {
     setJornadaHistory(prev => [newRecord, ...prev]);
   };
 
+  const updateJornadaCheckRecord = (updatedRecord: JornadaCheckRecord) => {
+    setJornadaHistory(prev => prev.map(rec => rec.id === updatedRecord.id ? updatedRecord : rec));
+    setEditingJornadaRecord(null); // Clear editing state
+  };
+
+  const startEditJornada = (record: JornadaCheckRecord) => {
+    setEditingJornadaRecord(record);
+    setCurrentScreen(Screen.JornadaCheck);
+  };
+
+  const cancelEditJornada = () => {
+    setEditingJornadaRecord(null);
+    setCurrentScreen(Screen.JornadaHistory);
+  };
+
   const handleExport = () => {
     try {
         const exportData: ExportData = {
@@ -202,9 +219,16 @@ const App: React.FC = () => {
                />;
       // Jornada Module
       case Screen.JornadaCheck:
-        return <JornadaCheckScreen currentUser={currentUser} addJornadaCheckRecord={addJornadaCheckRecord} />;
+        return <JornadaCheckScreen 
+                  currentUser={currentUser} 
+                  addJornadaCheckRecord={addJornadaCheckRecord} 
+                  editingRecord={editingJornadaRecord}
+                  updateJornadaCheckRecord={updateJornadaCheckRecord}
+                  onCancelEdit={cancelEditJornada}
+                  onNavigate={setCurrentScreen}
+                />;
       case Screen.JornadaHistory:
-        return <JornadaHistoryScreen records={jornadaHistory} operators={operators} />;
+        return <JornadaHistoryScreen records={jornadaHistory} operators={operators} onEdit={startEditJornada} />;
       default:
         return <LoginScreen operators={operators} setOperators={setOperators} onLogin={handleLogin} />;
     }

@@ -1,18 +1,38 @@
-import React, { useState, useMemo } from 'react';
-import { JornadaCheckRecord, Shift, JornadaTask } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { JornadaCheckRecord, Shift, JornadaTask, Screen } from '../types';
 import { MORNING_TASKS, AFTERNOON_TASKS } from './jornada-tasks';
-import { SaveIcon } from './Icons';
+import { SaveIcon, CameraIcon } from './Icons';
 
 interface JornadaCheckScreenProps {
   currentUser: string;
   addJornadaCheckRecord: (record: Omit<JornadaCheckRecord, 'id' | 'date'>) => void;
+  editingRecord: JornadaCheckRecord | null;
+  updateJornadaCheckRecord: (record: JornadaCheckRecord) => void;
+  onCancelEdit: () => void;
+  onNavigate: (screen: Screen) => void;
 }
 
-const JornadaCheckScreen: React.FC<JornadaCheckScreenProps> = ({ currentUser, addJornadaCheckRecord }) => {
+const JornadaCheckScreen: React.FC<JornadaCheckScreenProps> = ({ 
+    currentUser, 
+    addJornadaCheckRecord,
+    editingRecord,
+    updateJornadaCheckRecord,
+    onCancelEdit,
+    onNavigate,
+}) => {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [observations, setObservations] = useState('');
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
+  
+  useEffect(() => {
+    if (editingRecord) {
+        setSelectedShift(editingRecord.shift);
+        setCompletedTasks(new Set(editingRecord.completedTasks));
+        setObservations(editingRecord.observations);
+    }
+  }, [editingRecord]);
+
 
   const today = new Date().getDay(); // 0 for Sunday, 1 for Monday, etc.
 
@@ -61,26 +81,49 @@ const JornadaCheckScreen: React.FC<JornadaCheckScreenProps> = ({ currentUser, ad
   const handleSave = () => {
     if (!selectedShift) return;
 
-    addJornadaCheckRecord({
-      operator: currentUser,
-      shift: selectedShift,
-      completedTasks: Array.from(completedTasks),
-      observations,
-    });
-
-    // Reset form
-    setSelectedShift(null);
-    setCompletedTasks(new Set());
-    setObservations('');
+    if (editingRecord) {
+        updateJornadaCheckRecord({
+            ...editingRecord,
+            shift: selectedShift,
+            completedTasks: Array.from(completedTasks),
+            observations,
+        });
+        onCancelEdit(); // This will navigate back to history
+    } else {
+        addJornadaCheckRecord({
+            operator: currentUser,
+            shift: selectedShift,
+            completedTasks: Array.from(completedTasks),
+            observations,
+        });
+        // Reset form
+        setSelectedShift(null);
+        setCompletedTasks(new Set());
+        setObservations('');
+    }
 
     setIsSaveSuccess(true);
     setTimeout(() => setIsSaveSuccess(false), 3000);
   };
+  
+  const handleReset = () => {
+      if(editingRecord) {
+        onCancelEdit();
+      } else {
+        setSelectedShift(null);
+        setCompletedTasks(new Set());
+        setObservations('');
+      }
+  }
+
+  const isCameraTask = (task: JornadaTask) => task.id === 'm-cam' || task.id === 'a-cam';
 
   return (
     <div className="max-w-4xl mx-auto">
         <div className="bg-slate-800 rounded-xl shadow-lg p-6 sm:p-8 border border-slate-700">
-            <h2 className="text-3xl font-bold mb-6 text-slate-100">Chequeo de Rutinas de Jornada</h2>
+            <h2 className="text-3xl font-bold mb-6 text-slate-100">
+                {editingRecord ? 'Editando Chequeo de Jornada' : 'Chequeo de Rutinas de Jornada'}
+            </h2>
             
             {!selectedShift ? (
                 <div className="text-center">
@@ -100,8 +143,8 @@ const JornadaCheckScreen: React.FC<JornadaCheckScreenProps> = ({ currentUser, ad
                         <h3 className="text-2xl font-semibold text-slate-200">
                             Tareas - Jornada de <span className={selectedShift === 'Mañana' ? 'text-sky-400' : 'text-indigo-400'}>{selectedShift}</span>
                         </h3>
-                        <button onClick={() => setSelectedShift(null)} className="text-sm font-medium text-cyan-400 hover:text-cyan-300">
-                            Cambiar Jornada
+                        <button onClick={handleReset} className="text-sm font-medium text-cyan-400 hover:text-cyan-300">
+                            {editingRecord ? 'Cancelar Edición' : 'Cambiar Jornada'}
                         </button>
                     </div>
 
@@ -116,23 +159,31 @@ const JornadaCheckScreen: React.FC<JornadaCheckScreenProps> = ({ currentUser, ad
                                 const isTaskForToday = !task.days || task.days.includes(today);
                                 return (
                                     <li key={task.id}>
-                                        <label className={`flex items-center bg-slate-700 rounded-lg p-4 transition-colors ${
-                                            isTaskForToday ? 'cursor-pointer hover:bg-slate-600/50' : 'opacity-50 cursor-not-allowed'
+                                        <div className={`flex items-center justify-between bg-slate-700 rounded-lg p-4 transition-colors ${
+                                            isTaskForToday ? '' : 'opacity-50'
                                         }`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={completedTasks.has(task.id)}
-                                                onChange={() => handleToggleTask(task.id)}
-                                                disabled={!isTaskForToday}
-                                                className="w-6 h-6 text-cyan-500 bg-slate-800 border-slate-600 rounded focus:ring-cyan-600 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                            />
-                                            <span className={`ml-4 text-base ${
-                                                completedTasks.has(task.id) && isTaskForToday ? 'text-slate-100 line-through' : 'text-slate-300'
-                                            } ${!isTaskForToday ? 'text-slate-500' : ''}`}>
-                                                {task.text}
-                                                {task.days && !isTaskForToday && <span className="text-xs text-slate-500 ml-2 italic">(No aplica hoy)</span>}
-                                            </span>
-                                        </label>
+                                            <label className={`flex items-center ${isTaskForToday ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={completedTasks.has(task.id)}
+                                                    onChange={() => handleToggleTask(task.id)}
+                                                    disabled={!isTaskForToday}
+                                                    className="w-6 h-6 text-cyan-500 bg-slate-800 border-slate-600 rounded focus:ring-cyan-600 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                />
+                                                <span className={`ml-4 text-base ${
+                                                    completedTasks.has(task.id) && isTaskForToday ? 'text-slate-100 line-through' : 'text-slate-300'
+                                                } ${!isTaskForToday ? 'text-slate-500' : ''}`}>
+                                                    {task.text}
+                                                    {task.days && !isTaskForToday && <span className="text-xs text-slate-500 ml-2 italic">(No aplica hoy)</span>}
+                                                </span>
+                                            </label>
+                                            {isCameraTask(task) && (
+                                                <button onClick={() => onNavigate(Screen.CameraCheck)} className="text-xs bg-cyan-800 text-cyan-200 hover:bg-cyan-700 px-3 py-1 rounded-md flex items-center gap-2">
+                                                    <CameraIcon className="w-4 h-4"/>
+                                                    Ir a Chequeo
+                                                </button>
+                                            )}
+                                        </div>
                                     </li>
                                 );
                             })}
@@ -160,7 +211,7 @@ const JornadaCheckScreen: React.FC<JornadaCheckScreenProps> = ({ currentUser, ad
                             className="text-white bg-cyan-600 hover:bg-cyan-700 focus:ring-4 focus:outline-none focus:ring-cyan-800 font-medium rounded-lg text-base px-8 py-3 text-center transition-all flex items-center justify-center gap-2 disabled:bg-green-600 disabled:cursor-not-allowed"
                         >
                             <SaveIcon className="w-5 h-5"/>
-                            {isSaveSuccess ? '¡Jornada Guardada!' : 'Guardar Chequeo de Jornada'}
+                            {isSaveSuccess ? '¡Guardado!' : (editingRecord ? 'Actualizar Chequeo' : 'Guardar Chequeo')}
                         </button>
                     </div>
                 </div>

@@ -1,17 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { JornadaCheckRecord } from '../types';
 import { MORNING_TASKS, AFTERNOON_TASKS } from './jornada-tasks';
-import { ChevronDownIcon, CheckCircleIcon } from './Icons';
+import { ChevronDownIcon, CheckCircleIcon, EditIcon } from './Icons';
 
 interface JornadaHistoryScreenProps {
   records: JornadaCheckRecord[];
   operators: string[];
+  onEdit: (record: JornadaCheckRecord) => void;
 }
 
 const allTasks = [...MORNING_TASKS, ...AFTERNOON_TASKS];
 const taskMap = new Map(allTasks.map(task => [task.id, task.text]));
 
-const JornadaHistoryScreen: React.FC<JornadaHistoryScreenProps> = ({ records, operators }) => {
+const JornadaHistoryScreen: React.FC<JornadaHistoryScreenProps> = ({ records, operators, onEdit }) => {
   const [filterDate, setFilterDate] = useState('');
   const [filterOperator, setFilterOperator] = useState('');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
@@ -22,7 +23,7 @@ const JornadaHistoryScreen: React.FC<JornadaHistoryScreenProps> = ({ records, op
       const isDateMatch = !filterDate || recordDate.toISOString().startsWith(filterDate);
       const isOperatorMatch = !filterOperator || record.operator === filterOperator;
       return isDateMatch && isOperatorMatch;
-    });
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [records, filterDate, filterOperator]);
 
   const handleToggleExpand = (recordId: string) => {
@@ -94,14 +95,14 @@ const JornadaHistoryScreen: React.FC<JornadaHistoryScreenProps> = ({ records, op
                                 <th scope="col" className="py-3 px-6">Fecha y Hora</th>
                                 <th scope="col" className="py-3 px-6">Operador</th>
                                 <th scope="col" className="py-3 px-6">Jornada</th>
-                                <th scope="col" className="py-3 px-6">Observaciones</th>
+                                <th scope="col" className="py-3 px-6">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredRecords.length > 0 ? filteredRecords.map(record => (
                                 <React.Fragment key={record.id}>
-                                    <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-700/50 cursor-pointer" onClick={() => handleToggleExpand(record.id)}>
-                                        <td className="py-4 px-6 text-center">
+                                    <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-700/50">
+                                        <td className="py-4 px-6 text-center cursor-pointer" onClick={() => handleToggleExpand(record.id)}>
                                             <ChevronDownIcon className={`w-5 h-5 transition-transform ${expandedRecordId === record.id ? 'rotate-180' : ''}`} />
                                         </td>
                                         <td className="py-4 px-6 font-medium whitespace-nowrap">
@@ -113,8 +114,10 @@ const JornadaHistoryScreen: React.FC<JornadaHistoryScreenProps> = ({ records, op
                                                 {record.shift}
                                             </span>
                                         </td>
-                                        <td className="py-4 px-6 max-w-sm truncate" title={record.observations}>
-                                            {record.observations || 'N/A'}
+                                        <td className="py-4 px-6">
+                                            <button onClick={() => onEdit(record)} className="text-slate-400 hover:text-cyan-400 p-1" title="Editar registro">
+                                                <EditIcon className="w-5 h-5"/>
+                                            </button>
                                         </td>
                                     </tr>
                                     {expandedRecordId === record.id && renderRecordDetails(record)}
