@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -99,7 +100,9 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ records, operators, serve
         headStyles: { fillColor: [30, 41, 59] }, // slate-800
         didDrawCell: (data) => {
             // Remove the main header for the detail rows
-            if (data.row.raw.length === 3 && data.row.raw[0].content === 'Cámara') {
+            // FIX: Add array type guard to prevent error on 'length' property access.
+            // FIX: Safely access content property by checking if the cell data is an object, as it can also be a string.
+            if (Array.isArray(data.row.raw) && data.row.raw.length === 3 && typeof data.row.raw[0] === 'object' && data.row.raw[0] && (data.row.raw[0] as any).content === 'Cámara') {
                  if (data.cell.section === 'head') {
                     // This is a bit of a hack to prevent drawing the main header over the sub-header
                     return false;

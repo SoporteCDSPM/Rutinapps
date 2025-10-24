@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect } from 'react';
-// FIX: Import DeviceStatus to handle device state correctly.
-import { CheckRecord, DeviceState, Server, DeviceStatus } from '../types';
+// FIX: Import DeviceStatus and Camera to handle device state correctly.
+import { CheckRecord, DeviceState, Server, DeviceStatus, Camera } from '../types';
 import Modal from './Modal';
 import { HelpIcon, SaveIcon, CommentIcon, ServerIcon } from './Icons';
 
@@ -13,77 +14,78 @@ interface CheckScreenProps {
 }
 
 const CheckScreen: React.FC<CheckScreenProps> = ({ servers, helpText, currentUser, addCheckRecord }) => {
-  const [deviceStates, setDeviceStates] = useState<Record<string, DeviceState>>({});
-  // FIX: Add serverStates to match the CheckRecord type.
+  // FIX: Rename deviceStates to cameraStates to match the CheckRecord type.
+  const [cameraStates, setCameraStates] = useState<Record<string, DeviceState>>({});
   const [serverStates, setServerStates] = useState<Record<string, boolean>>({});
   const [generalObservations, setGeneralObservations] = useState('');
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
   const [observationOpenFor, setObservationOpenFor] = useState<string | null>(null);
 
-  const allDeviceIps = React.useMemo(() => servers.flatMap(s => s.devices.map(d => d.ip)), [servers]);
+  // FIX: Use server.cameras and camera.id instead of server.devices and device.ip.
+  const allCameraIds = React.useMemo(() => servers.flatMap(s => s.cameras.map(c => c.id)), [servers]);
 
   useEffect(() => {
     const initialState: Record<string, DeviceState> = {};
-    allDeviceIps.forEach(ip => {
-      // FIX: 'checked' does not exist in type 'DeviceState'. Initialize with 'status'.
-      initialState[ip] = { status: DeviceStatus.NotChecked, observation: '' };
+    // FIX: Initialize state using camera IDs.
+    allCameraIds.forEach(camId => {
+      initialState[camId] = { status: DeviceStatus.NotChecked, observation: '' };
     });
-    setDeviceStates(initialState);
+    setCameraStates(initialState);
     
-    // FIX: Initialize serverStates.
     const initialServerState: Record<string, boolean> = {};
     servers.forEach(server => {
         initialServerState[server.id] = false;
     });
     setServerStates(initialServerState);
-  }, [allDeviceIps, servers]);
+  }, [allCameraIds, servers]);
 
-  const handleToggleCheck = (ip: string) => {
-    setDeviceStates(prev => ({
+  // FIX: Update handler to use camera ID.
+  const handleToggleCheck = (camId: string) => {
+    setCameraStates(prev => ({
       ...prev,
-      // FIX: Property 'checked' does not exist on type 'DeviceState'. Toggle status instead.
-      [ip]: { ...prev[ip], status: prev[ip].status === DeviceStatus.OK ? DeviceStatus.NotChecked : DeviceStatus.OK },
+      [camId]: { ...prev[camId], status: prev[camId].status === DeviceStatus.OK ? DeviceStatus.NotChecked : DeviceStatus.OK },
     }));
   };
 
-  const handleObservationChange = (ip: string, value: string) => {
-    setDeviceStates(prev => ({
+  // FIX: Update handler to use camera ID.
+  const handleObservationChange = (camId: string, value: string) => {
+    setCameraStates(prev => ({
         ...prev,
-        [ip]: { ...prev[ip], observation: value }
+        [camId]: { ...prev[camId], observation: value }
     }));
   };
 
-  const handleToggleObservation = (ip: string) => {
-    setObservationOpenFor(prev => (prev === ip ? null : ip));
+  // FIX: Update handler to use camera ID.
+  const handleToggleObservation = (camId: string) => {
+    setObservationOpenFor(prev => (prev === camId ? null : camId));
   };
 
   const handleToggleAll = () => {
-    // FIX: Property 'checked' does not exist on type 'DeviceState'. Check status instead.
-    const allCurrentlyChecked = allDeviceIps.length > 0 && allDeviceIps.every(ip => deviceStates[ip]?.status === DeviceStatus.OK);
+    // FIX: Check status based on cameraStates and camera IDs.
+    const allCurrentlyChecked = allCameraIds.length > 0 && allCameraIds.every(camId => cameraStates[camId]?.status === DeviceStatus.OK);
     const newStates: Record<string, DeviceState> = {};
-    allDeviceIps.forEach(ip => {
-        // FIX: 'checked' does not exist in type 'DeviceState'. Assign 'status' instead.
-        newStates[ip] = { ...(deviceStates[ip] || { observation: '', status: DeviceStatus.NotChecked }), status: !allCurrentlyChecked ? DeviceStatus.OK : DeviceStatus.NotChecked };
+    allCameraIds.forEach(camId => {
+        newStates[camId] = { ...(cameraStates[camId] || { observation: '', status: DeviceStatus.NotChecked }), status: !allCurrentlyChecked ? DeviceStatus.OK : DeviceStatus.NotChecked };
     });
-    setDeviceStates(newStates);
+    setCameraStates(newStates);
   };
   
   const handleSave = () => {
-      // FIX: Property 'serverStates' is missing in the argument.
+      // FIX: Use 'cameraStates' property instead of 'deviceStates'.
       addCheckRecord({
           operator: currentUser,
           generalObservations,
-          deviceStates,
+          cameraStates,
           serverStates,
       });
       // Reset form
       const resetState: Record<string, DeviceState> = {};
-      allDeviceIps.forEach(ip => {
-          // FIX: 'checked' does not exist in type 'DeviceState'. Reset 'status'.
-          resetState[ip] = { status: DeviceStatus.NotChecked, observation: '' };
+      // FIX: Reset state using camera IDs.
+      allCameraIds.forEach(camId => {
+          resetState[camId] = { status: DeviceStatus.NotChecked, observation: '' };
       });
-      setDeviceStates(resetState);
+      setCameraStates(resetState);
 
       const resetServerState: Record<string, boolean> = {};
       servers.forEach(server => {
@@ -98,8 +100,8 @@ const CheckScreen: React.FC<CheckScreenProps> = ({ servers, helpText, currentUse
       setTimeout(() => setIsSaveSuccess(false), 3000);
   };
 
-  // FIX: Property 'checked' does not exist on type 'DeviceState'. Check status instead.
-  const allChecked = allDeviceIps.length > 0 && allDeviceIps.every(ip => deviceStates[ip]?.status === DeviceStatus.OK);
+  // FIX: Check status based on cameraStates and camera IDs.
+  const allChecked = allCameraIds.length > 0 && allCameraIds.every(camId => cameraStates[camId]?.status === DeviceStatus.OK);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -118,39 +120,41 @@ const CheckScreen: React.FC<CheckScreenProps> = ({ servers, helpText, currentUse
                         <div key={server.id}>
                             <h4 className="flex items-center gap-2 font-semibold text-slate-300 mb-2">
                                 <ServerIcon className="w-5 h-5 text-cyan-500" />
-                                {server.name}
+                                {/* FIX: Property 'name' does not exist on type 'Server'. Use 'ip'. */}
+                                {server.ip}
                             </h4>
                             <ul className="flex flex-col gap-3 pl-7">
-                                {server.devices.map(device => (
-                                    <li key={device.ip} className="bg-slate-700 rounded-lg p-3 transition-all duration-300 ease-in-out">
+                                {/* FIX: Property 'devices' does not exist on type 'Server'. Use 'cameras'. */}
+                                {server.cameras.map(camera => (
+                                    <li key={camera.id} className="bg-slate-700 rounded-lg p-3 transition-all duration-300 ease-in-out">
                                     <div className="flex items-center justify-between">
                                         <label className="flex items-center p-2 rounded-lg cursor-pointer flex-grow">
                                             <input
                                                 type="checkbox"
-                                                // FIX: Property 'checked' does not exist on type 'DeviceState'. Check status instead.
-                                                checked={deviceStates[device.ip]?.status === DeviceStatus.OK || false}
-                                                onChange={() => handleToggleCheck(device.ip)}
+                                                // FIX: Use camera ID to check status in cameraStates.
+                                                checked={cameraStates[camera.id]?.status === DeviceStatus.OK || false}
+                                                onChange={() => handleToggleCheck(camera.id)}
                                                 className="w-5 h-5 text-cyan-500 bg-slate-800 border-slate-600 rounded focus:ring-cyan-600 focus:ring-2"
                                             />
-                                            {/* FIX: Property 'checked' does not exist on type 'DeviceState'. Use status for styling. */}
-                                            <span className={`ml-4 font-mono text-sm ${deviceStates[device.ip]?.status === DeviceStatus.OK ? 'text-slate-100' : 'text-slate-300'}`}>{device.ip}</span>
+                                            {/* FIX: Use camera states and display camera location and IP. */}
+                                            <span className={`ml-4 font-mono text-sm ${cameraStates[camera.id]?.status === DeviceStatus.OK ? 'text-slate-100' : 'text-slate-300'}`}>{camera.location} ({camera.ip})</span>
                                         </label>
                                         <button 
-                                            onClick={() => handleToggleObservation(device.ip)}
+                                            onClick={() => handleToggleObservation(camera.id)}
                                             title="Añadir observación"
-                                            className={`p-2 rounded-md transition-colors ${observationOpenFor === device.ip ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:bg-slate-600 hover:text-white'}`}
+                                            className={`p-2 rounded-md transition-colors ${observationOpenFor === camera.id ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:bg-slate-600 hover:text-white'}`}
                                         >
                                         <CommentIcon className="w-5 h-5" />
                                         </button>
                                     </div>
-                                    {observationOpenFor === device.ip && (
+                                    {observationOpenFor === camera.id && (
                                         <div className="mt-3 mx-2 animate-[fadeIn_0.3s_ease-out]">
                                             <textarea
-                                                value={deviceStates[device.ip]?.observation || ''}
-                                                onChange={(e) => handleObservationChange(device.ip, e.target.value)}
+                                                value={cameraStates[camera.id]?.observation || ''}
+                                                onChange={(e) => handleObservationChange(camera.id, e.target.value)}
                                                 rows={2}
                                                 className="w-full bg-slate-600 border border-slate-500 text-slate-100 text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5"
-                                                placeholder={`Observación para ${device.ip}...`}
+                                                placeholder={`Observación para ${camera.location}...`}
                                                 />
                                         </div>
                                     )}
